@@ -15,6 +15,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+// TODO: fix cmake_pch path for includes
+#include "C:/Users/Tristan/WarsongCore-AC/build/src/server/game/CMakeFiles/game.dir/RelWithDebInfo/cmake_pch.hxx"
 #include "CharacterWebService.h"
 #include "Player.h"
 #include "Item.h"

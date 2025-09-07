@@ -271,12 +271,15 @@ void Battleground::Update(uint32 diff)
         //      should be used instead of current
         // ]]
         // Battleground Template instance cannot be updated, because it would be deleted
-        if (!GetInvitedCount(TEAM_HORDE) && !GetInvitedCount(TEAM_ALLIANCE))
-        {
-            m_SetDeleteThis = true;
-        }
 
-        return;
+
+        // TODO:
+        //if (!GetInvitedCount(TEAM_HORDE) && !GetInvitedCount(TEAM_ALLIANCE))
+        //{
+        //    m_SetDeleteThis = true;
+        //}
+
+        //return;
     }
 
     switch (GetStatus())
@@ -1014,6 +1017,7 @@ uint32 Battleground::GetBonusHonorFromKill(uint32 kills) const
     return Acore::Honor::hk_honor_at_level(maxLevel, float(kills));
 }
 
+// TODO: thirk this is important maybe?
 void Battleground::BlockMovement(Player* player)
 {
     player->SetClientControl(player, 0);                          // movement disabled NOTE: the effect will be automatically removed by client when the player is teleported from the battleground, so no need to send with uint8(1) in RemovePlayerAtLeave()
