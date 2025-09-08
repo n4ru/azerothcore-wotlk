@@ -422,6 +422,11 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
         bg->SetMaxPlayersPerTeam(maxPlayersPerTeam);
     }
 
+    // TODO: Natsirt -- potentially move outside of this? Workaround for now
+    // as we need to instantiate _Battlegrounds member for BattlegroundMgr internal map
+    // otherwise we get a nullptr on BG creation from _Battlegrounds.end()
+    AddBattleground(bg);
+
     return bg;
 }
 

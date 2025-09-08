@@ -5138,27 +5138,19 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
         }
 
         Battleground* currentBg = nullptr;
-        
-
-
-        // Check if queued externally for a new bg that hasn't started yet
-        //QueryResult result = CharacterDatabase.Query("SELECT `instance_id` FROM characters WHERE `name` = '%s'", GetName().c_str());
-        //Field* fields = result->Fetch();
-        //uint32 instanceId = fields[63].Get<uint32>();
-        //uint32 instanceId = !fields[2].IsNull() ? fields[2].Get<uint32>() : 0;
-
 
         if (instanceId >= 9999) {
-            PvPDifficultyEntry const* bracketEntry = GetBattlegroundBracketByLevel(489, GetLevel()); // Get WSG Bracket
+            PvPDifficultyEntry const* bracketEntry = GetBattlegroundBracketByLevel(489, this->GetLevel()); // Get WSG Bracket
             if (bracketEntry) {
-                currentBg = sBattlegroundMgr->CreateNewBattleground(BATTLEGROUND_WS, bracketEntry, 0, false); // Start a wsg
+                currentBg = sBattlegroundMgr->CreateNewBattleground(BATTLEGROUND_WS, bracketEntry, 0, false); // create a wsg, this is just a template not actual bg
                 if (currentBg) {
-                    LOG_INFO("entities.player", "Player ({}) found in a new BG queue. Creating BG instance {} for them.", GetName(), currentBg->GetInstanceID());
+                    LOG_INFO("entities.player", "Player ({}) found. Creating BG instance {} for them.", this->GetName(), currentBg->GetInstanceID());
 
-                    mapId = currentBg->GetMapId();
-                    instanceId = currentBg->GetInstanceID();
-
+                    this->SetBattlegroundId(currentBg->GetInstanceID(), currentBg->GetBgTypeID(), 0, true, false, m_bgData.bgTeamId);
                     
+                    mapId = currentBg->GetMapId();
+                    instanceId = this->GetBattlegroundId();
+
                     map = sMapMgr->CreateMap(mapId, this);
 
                     if (!map)
@@ -5170,23 +5162,21 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
 
 
                     Position const* startPos = currentBg->GetTeamStartPosition(GetTeamId());
+                    // TODO: Natsirt -- remove hardcoded start locations and use team starting locations
                     WorldLocation bgLocation = WorldLocation(mapId, 933.3315f, 1433.7240f, 345.5356f);
 
                     if (startPos)
                     {
                         m_entryPointData.joinPos = bgLocation;
                         m_entryPointData.joinPos.SetOrientation(startPos->GetOrientation());
-                        SetEntryPoint();
-                    }
-                    if (!startPos)
+                        //SetEntryPoint(); // instance only?
+                    } 
+                    else
                     {
                         LOG_ERROR("entities.player", "Failed to get starting position for player ({}) in new BG.", playerGuid.ToString());
                         RelocateToHomebind();
                         return false;
                     }
-
-                    //InstanceSave* save = sInstanceSaveMgr->AddInstanceSave(489, instanceId, REGULAR_DIFFICULTY, false);
-                    LOG_INFO("entities.player", "Player ({}) found in BG queue. New instance ID is: {}", playerGuid.ToString(), instanceId);
                 }
                 else {
                     LOG_ERROR("entities.player", "Player ({}) attempted to enter a new BG, but creation failed. Returning to homebind.", GetName());
@@ -5307,7 +5297,7 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
         }
 
         // check whether player was unbound or is bound to another instance
-        // todo: testing to bypass this check
+        // TODO: Natsirt -- testing to bypass this check, check if still needed or remove hardcoded mapId
         if (instanceId && mapId != 489)
         {
             InstanceSave* save = sInstanceSaveMgr->PlayerGetInstanceSave(GetGUID(), mapId, GetDifficulty(mapEntry->IsRaid()));
@@ -5326,7 +5316,7 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
             RelocateToHomebind();
     }
 
-
+    
     // NOW player must have valid map
     // load the player's map here if it's not already loaded
     if (!map)
