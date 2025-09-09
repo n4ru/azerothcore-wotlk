@@ -5150,7 +5150,7 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
                     
                     mapId = currentBg->GetMapId();
                     instanceId = this->GetBattlegroundId();
-
+                    
                     map = sMapMgr->CreateMap(mapId, this);
 
                     if (!map)
@@ -5177,6 +5177,10 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
                         RelocateToHomebind();
                         return false;
                     }
+
+                    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHARACTER);
+                    stmt->SetData(17, instanceId);
+                    CharacterDatabase.Execute(stmt);
                 }
                 else {
                     LOG_ERROR("entities.player", "Player ({}) attempted to enter a new BG, but creation failed. Returning to homebind.", GetName());
@@ -5186,8 +5190,10 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
             }
         }
         else {
-            if (m_bgData.bgInstanceID)      // saved in BG
-                currentBg = sBattlegroundMgr->GetBattleground(m_bgData.bgInstanceID, BATTLEGROUND_TYPE_NONE);
+            if (this->InBattleground())      // saved in BG
+                instanceId = this->GetBattlegroundId();
+                currentBg = sBattlegroundMgr->GetBattleground(instanceId, this->GetBattlegroundTypeId());
+                mapId = currentBg->GetMapId();
         }
 
 

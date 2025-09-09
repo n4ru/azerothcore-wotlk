@@ -14862,7 +14862,9 @@ void Player::_SaveCharacter(bool create, CharacterDatabaseTransaction trans)
                     else rd = m->GetDifficulty();
                 }
             stmt->SetData(index++, (uint16)GetMapId());
-            stmt->SetData(index++, (uint32)GetInstanceId());
+            this->InBattleground() ?
+                stmt->SetData(index++, (uint32)this->GetBattlegroundId()) :
+                stmt->SetData(index++, (uint32)GetInstanceId());
             stmt->SetData(index++, (uint8(dd) | uint8(rd) << 4));
             stmt->SetData(index++, finiteAlways(GetPositionX()));
             stmt->SetData(index++, finiteAlways(GetPositionY()));
