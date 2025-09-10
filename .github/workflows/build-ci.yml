@@ -30,17 +30,10 @@ jobs:
         with:
           cmake-version: '3.27.0'  # Minimum for Windows
 
-      - name: Cache MySQL
-        uses: actions/cache@v3
-        with:
-          path: C:\tools\mysql
-          key: mysql-8.0-windows
-
       - name: Install MySQL
         run: |
-          if (-not (Test-Path "C:\tools\mysql")) {
-            choco install mysql --version=8.0.30 -y
-          }
+          # Use the latest available MySQL that works
+          choco install mysql -y
 
       - name: Configure build
         run: |
@@ -98,9 +91,8 @@ jobs:
       - name: Setup MySQL
         run: |
           sudo systemctl start mysql
-          sudo mysql -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'root';"
-          sudo mysql -e "GRANT ALL ON *.* TO 'root'@'%';"
-          sudo mysql -e "FLUSH PRIVILEGES;"
+          # GitHub Actions MySQL doesn't need password for sudo access
+          echo "MySQL service started successfully"
 
       - name: Configure build
         run: |
@@ -156,9 +148,8 @@ jobs:
         run: |
           brew services start mysql@8.0
           sleep 5
-          mysql -u root -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'root';" 2>/dev/null || true
-          mysql -u root -e "GRANT ALL ON *.* TO 'root'@'%';" 2>/dev/null || true
-          mysql -u root -e "FLUSH PRIVILEGES;" 2>/dev/null || true
+          # macOS MySQL also typically runs without password in CI
+          echo "MySQL service started successfully"
 
       - name: Configure build
         run: |
