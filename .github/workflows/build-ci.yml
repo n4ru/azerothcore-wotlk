@@ -39,7 +39,7 @@ jobs:
           git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
           cd C:\vcpkg
           .\bootstrap-vcpkg.bat
-          .\vcpkg install boost-system boost-filesystem boost-program-options boost-iostreams boost-regex boost-thread boost-date-time boost-asio --triplet x64-windows
+          .\vcpkg install boost-system boost-filesystem boost-program-options boost-iostreams boost-regex boost-thread boost-date-time boost-asio boost-dll boost-process --triplet x64-windows
           echo "BOOST_ROOT=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
           echo "CMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake" >> $env:GITHUB_ENV
           
@@ -125,14 +125,28 @@ jobs:
 
       - name: Check build artifacts
         run: |
-          if [ ! -f "build/bin/worldserver" ]; then
-            echo "worldserver not found!"
+          echo "=== Searching for executables ==="
+          worldserver_path=$(find build -name "worldserver" -type f 2>/dev/null | head -1)
+          authserver_path=$(find build -name "authserver" -type f 2>/dev/null | head -1)
+          
+          if [ -n "$worldserver_path" ]; then
+            echo "✓ worldserver found at: $worldserver_path"
+          else
+            echo "✗ worldserver not found!"
+            echo "Build directory contents:"
+            find build -type f -name "*server*" 2>/dev/null | head -10
             exit 1
           fi
-          if [ ! -f "build/bin/authserver" ]; then
-            echo "authserver not found!"
+          
+          if [ -n "$authserver_path" ]; then
+            echo "✓ authserver found at: $authserver_path"
+          else
+            echo "✗ authserver not found!"
+            echo "Build directory contents:"
+            find build -type f -name "*server*" 2>/dev/null | head -10
             exit 1
           fi
+          
           echo "Build successful!"
 
   build-macos:
@@ -189,14 +203,30 @@ jobs:
 
       - name: Check build artifacts
         run: |
-          if [ ! -f "build/bin/worldserver" ]; then
-            echo "worldserver not found!"
+          # Check common locations for the executables
+          echo "Searching for build artifacts..."
+          find build -name "worldserver" -type f 2>/dev/null || echo "worldserver not found"
+          find build -name "authserver" -type f 2>/dev/null || echo "authserver not found"
+          
+          # Check the actual locations
+          if [ -f "build/bin/worldserver" ]; then
+            echo "✓ worldserver found at build/bin/worldserver"
+          elif [ -f "build/src/server/apps/worldserver" ]; then
+            echo "✓ worldserver found at build/src/server/apps/worldserver"
+          else
+            echo "✗ worldserver not found!"
             exit 1
           fi
-          if [ ! -f "build/bin/authserver" ]; then
-            echo "authserver not found!"
+          
+          if [ -f "build/bin/authserver" ]; then
+            echo "✓ authserver found at build/bin/authserver"
+          elif [ -f "build/src/server/apps/authserver" ]; then
+            echo "✓ authserver found at build/src/server/apps/authserver"
+          else
+            echo "✗ authserver not found!"
             exit 1
           fi
+          
           echo "Build successful!"
 
   test-webservice:
