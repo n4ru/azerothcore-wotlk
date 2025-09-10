@@ -39,7 +39,7 @@ jobs:
       - name: Install MySQL
         run: |
           if (-not (Test-Path "C:\tools\mysql")) {
-            choco install mysql --version=8.4.0 --params '/Port:3306 /RootPassword:root' -y  # Recommended MySQL 8.4
+            choco install mysql --version=8.0.30 -y
           }
 
       - name: Configure build
@@ -98,8 +98,9 @@ jobs:
       - name: Setup MySQL
         run: |
           sudo systemctl start mysql
-          sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'root';"
-          sudo mysql -proot -e "FLUSH PRIVILEGES;"
+          sudo mysql -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'root';"
+          sudo mysql -e "GRANT ALL ON *.* TO 'root'@'%';"
+          sudo mysql -e "FLUSH PRIVILEGES;"
 
       - name: Configure build
         run: |
@@ -147,13 +148,17 @@ jobs:
       - name: Install dependencies
         run: |
           brew update
-          brew install cmake openssl@3 readline boost mysql@8.0
+          brew uninstall --ignore-dependencies cmake 2>/dev/null || true
+          brew install cmake openssl@3 readline boost
+          brew install mysql@8.0 || brew link --overwrite mysql@8.0
 
       - name: Setup MySQL
         run: |
-          brew services start mysql
-          mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'root';"
-          mysql -u root -proot -e "FLUSH PRIVILEGES;"
+          brew services start mysql@8.0
+          sleep 5
+          mysql -u root -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'root';" 2>/dev/null || true
+          mysql -u root -e "GRANT ALL ON *.* TO 'root'@'%';" 2>/dev/null || true
+          mysql -u root -e "FLUSH PRIVILEGES;" 2>/dev/null || true
 
       - name: Configure build
         run: |
