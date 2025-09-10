@@ -32,12 +32,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Download pre-built Boost for Windows
-          $boostUrl = "https://github.com/actions/boost-versions/releases/download/1.82.0-20230619.2/boost-1.82.0-windows-2022.tar.gz"
-          Invoke-WebRequest -Uri $boostUrl -OutFile "boost.tar.gz"
-          tar -xzf boost.tar.gz -C C:\
-          echo "BOOST_ROOT=C:\boost\1.82.0\x86_64" >> $env:GITHUB_ENV
-          echo "BOOST_ROOT set to C:\boost\1.82.0\x86_64"
+          # Use vcpkg to install Boost - faster and more reliable
+          git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+          cd C:\vcpkg
+          .\bootstrap-vcpkg.bat
+          .\vcpkg install boost-system boost-filesystem boost-program-options boost-iostreams boost-regex boost-thread boost-date-time --triplet x64-windows
+          echo "BOOST_ROOT=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
+          echo "CMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake" >> $env:GITHUB_ENV
           
           # Install MySQL
           choco install mysql -y
@@ -51,6 +52,7 @@ jobs:
             -DWITH_WARNINGS=1 `
             -DSCRIPTS=static `
             -DTOOLS_BUILD=all `
+            -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
             -DCMAKE_C_FLAGS="/MP" `
             -DCMAKE_CXX_FLAGS="/MP"
 
