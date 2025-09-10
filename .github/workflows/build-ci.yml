@@ -32,11 +32,14 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Clean up existing vcpkg if it exists
+          if (Test-Path C:\vcpkg) { Remove-Item -Recurse -Force C:\vcpkg }
+          
           # Use vcpkg to install Boost - faster and more reliable
           git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
           cd C:\vcpkg
           .\bootstrap-vcpkg.bat
-          .\vcpkg install boost-system boost-filesystem boost-program-options boost-iostreams boost-regex boost-thread boost-date-time --triplet x64-windows
+          .\vcpkg install boost-system boost-filesystem boost-program-options boost-iostreams boost-regex boost-thread boost-date-time boost-asio --triplet x64-windows
           echo "BOOST_ROOT=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
           echo "CMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake" >> $env:GITHUB_ENV
           
@@ -54,7 +57,7 @@ jobs:
             -DTOOLS_BUILD=all `
             -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
             -DCMAKE_C_FLAGS="/MP" `
-            -DCMAKE_CXX_FLAGS="/MP"
+            -DCMAKE_CXX_FLAGS="/MP /EHsc"
 
       - name: Build
         run: |
