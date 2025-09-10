@@ -85,7 +85,7 @@ jobs:
           submodules: recursive
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/deps
           key: ${{ runner.os }}-deps-${{ hashFiles('**/CMakeLists.txt') }}
@@ -158,7 +158,7 @@ jobs:
           submodules: recursive
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/deps
           key: ${{ runner.os }}-deps-${{ hashFiles('**/CMakeLists.txt') }}
