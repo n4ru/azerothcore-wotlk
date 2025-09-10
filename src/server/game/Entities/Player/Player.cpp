@@ -14874,7 +14874,9 @@ void Player::_SaveCharacter(bool create, CharacterDatabaseTransaction trans)
         else
         {
             stmt->SetData(index++, (uint16)GetTeleportDest().GetMapId());
-            stmt->SetData(index++, (uint32)0);
+            this->InBattleground() ?
+                stmt->SetData(index++, (uint32)this->GetBattlegroundId()) :
+                stmt->SetData(index++, (uint32)0);
             stmt->SetData(index++, (uint8(GetDungeonDifficulty()) | uint8(GetRaidDifficulty()) << 4));
             stmt->SetData(index++, finiteAlways(GetTeleportDest().GetPositionX()));
             stmt->SetData(index++, finiteAlways(GetTeleportDest().GetPositionY()));

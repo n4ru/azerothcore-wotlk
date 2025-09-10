@@ -974,7 +974,8 @@ public:
                 handler->SendErrorMessage("Can't summon to a battleground!");
                 return false;
             }
-            else if (map->IsDungeon())
+
+            if (map->IsDungeon())
             {
                 // Allow GM to summon players or only other GM accounts inside instances.
                 if (!sWorld->getBoolConfig(CONFIG_INSTANCE_GMSUMMON_PLAYER))

@@ -63,6 +63,7 @@
 #include "Util.h"
 #include "World.h"
 #include "WorldPacket.h"
+#include "WorldState.h"
 
 /// @todo: this import is not necessary for compilation and marked as unused by the IDE
 //  however, for some reasons removing it would cause a damn linking issue
@@ -5137,63 +5138,318 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
                 ResurrectPlayer(1.0f);
         }
 
+        // TODO: Incorporate grouping functionality and leader instanceId so existing has a way to join without manual db entry
+        // TODO: Fix duplicate endscreen on bg end
+        // TODO: Add check for if not 489, otherwise we through assert on m_currMap
+        // WSC-CL
         Battleground* currentBg = nullptr;
+        bool bgCreatedNow = false;  // Track if we just created a new BG
 
-        if (instanceId >= 9999) {
+        if (mapId == 489 && instanceId == 0) {
             PvPDifficultyEntry const* bracketEntry = GetBattlegroundBracketByLevel(489, this->GetLevel()); // Get WSG Bracket
             if (bracketEntry) {
-                currentBg = sBattlegroundMgr->CreateNewBattleground(BATTLEGROUND_WS, bracketEntry, 0, false); // create a wsg, this is just a template not actual bg
-                if (currentBg) {
-                    LOG_INFO("entities.player", "Player ({}) found. Creating BG instance {} for them.", this->GetName(), currentBg->GetInstanceID());
+                if (!this->InBattleground() && this->GetInstanceId() == 0) {
+                    currentBg = sBattlegroundMgr->CreateNewBattleground(BATTLEGROUND_WS, bracketEntry, 0, false); // create a wsg instance
+                    if (currentBg) {
+                        bgCreatedNow = true;  // Mark that we just created this BG
+                        LOG_INFO("entities.player", "Player ({}) found. Creating BG instance {} for them.", this->GetName(), currentBg->GetInstanceID());
+                        // Disable premature ending for custom single-player battlegrounds
+                        currentBg->SetDisablePrematureEnd(true);
+                        sBattlegroundMgr->AddBattleground(currentBg);
+                        // WSC-CL: Use BATTLEGROUND_WS directly since we know we created a WSG instance
+                        this->SetBattlegroundId(currentBg->GetInstanceID(), BATTLEGROUND_WS, 0, true, false, m_bgData.bgTeamId);
 
-                    this->SetBattlegroundId(currentBg->GetInstanceID(), currentBg->GetBgTypeID(), 0, true, false, m_bgData.bgTeamId);
-                    
-                    mapId = currentBg->GetMapId();
-                    instanceId = this->GetBattlegroundId();
-                    
-                    map = sMapMgr->CreateMap(mapId, this);
+                        mapId = currentBg->GetMapId();
+                        instanceId = this->GetBattlegroundId();
 
-                    if (!map)
-                    {
-                        LOG_ERROR("entities.player", "Failed to create battleground map instance for player ({}) after BG creation. Returning to homebind.", GetName());
-                        RelocateToHomebind();
-                        return false;
+                        map = sMapMgr->CreateMap(mapId, this);
+
+                        if (!map)
+                        {
+                            LOG_ERROR("entities.player", "Failed to create battleground map instance for player ({}) after BG creation. Returning to homebind.", GetName());
+                            RelocateToHomebind();
+                            return false;
+                        }
+
+                        LOG_INFO("entities.player", "BG pointer is valid. Instance ID: {}.", currentBg->GetInstanceID());
+                        BattlegroundMap* bgMap = map->ToBattlegroundMap();
+                        if (bgMap)
+                        {
+                            LOG_INFO("entities.player", "BattlegroundMap pointer is valid. Map ID: {}.", bgMap->GetId());
+                            currentBg->SetBgMap(bgMap);
+                            map = currentBg->GetBgMap();
+                            this->SetMap(map);
+
+                            // WSC-CL: Initialize the battleground
+                            currentBg->Init();
+                            currentBg->StartBattleground();
+
+                            // Set the battleground to wait for players with a 2 minute countdown
+                            currentBg->SetStatus(STATUS_WAIT_JOIN);
+                            currentBg->SetStartDelayTime(BG_START_DELAY_2M); // 2 minute countdown
+                            
+                            // WSC-CL: Don't call SetupBattleground here - _ProcessJoin will handle it
+                            // This prevents duplicate object creation
+                            
+                            // Add the player - they will get preparation spell and wait for BG to start
+                            currentBg->AddPlayer(this->GetSession()->GetPlayer());
+
+                        }
+                        else
+                        {
+                            LOG_ERROR("entities.player", "Failed to get BattlegroundMap from map. `ToBattlegroundMap()` returned nullptr.");
+                        }
+
+                        // TODO: BattlegroundMgr::SendToBattleground does this? -- YES BUT requires player to NOT be in world, not usable if saved (loading from db)
+                        Position const* startPos = currentBg->GetTeamStartPosition(this->GetTeamId());
+                        WorldLocation bgLocation = WorldLocation(mapId, startPos->GetPositionX(), startPos->GetPositionY(), startPos->GetPositionZ());
+
+                        if (startPos)
+                        {
+                            m_entryPointData.joinPos = bgLocation;
+                            m_entryPointData.joinPos.SetOrientation(startPos->GetOrientation());
+                        }
+                        else
+                        {
+                            LOG_ERROR("entities.player", "Failed to get starting position for player ({}) in new BG.", playerGuid.ToString());
+                            RelocateToHomebind();
+                            return false;
+                        }
                     }
-
-
-                    Position const* startPos = currentBg->GetTeamStartPosition(GetTeamId());
-                    // TODO: Natsirt -- remove hardcoded start locations and use team starting locations
-                    WorldLocation bgLocation = WorldLocation(mapId, 933.3315f, 1433.7240f, 345.5356f);
-
-                    if (startPos)
+                    else if (this->InBattleground() && this->GetBattleground() && !bgCreatedNow)  // Only execute if we didn't just create the BG
                     {
-                        m_entryPointData.joinPos = bgLocation;
-                        m_entryPointData.joinPos.SetOrientation(startPos->GetOrientation());
-                        //SetEntryPoint(); // instance only?
-                    } 
+                        // WSC-CL: Use GetBattlegroundId() instead of GetInstanceId() to get the correct BG instance
+                        currentBg = sBattlegroundMgr->GetBattleground(this->GetBattlegroundId(), BATTLEGROUND_WS);
+
+                        if (currentBg)
+                        {
+                            mapId = currentBg->GetMapId();
+                            instanceId = this->GetBattlegroundId();
+
+                            map = sMapMgr->FindMap(mapId, instanceId);
+
+                            if (!map)
+                            {
+                                LOG_ERROR("entities.player", "Failed to find battleground map instance for player ({}). Returning to homebind.", GetName());
+                                RelocateToHomebind();
+                                return false;
+                            }
+
+                            // WSC-CL: Set map BEFORE adding player to BG so world states are sent properly
+                            this->SetMap(map);
+                            
+                            BattlegroundMap* bgMap = map->ToBattlegroundMap();
+                            if (bgMap)
+                            {
+                                // WSC-CL: Set the BG map reference so SpawnBGObject and other functions work properly
+                                currentBg->SetBgMap(bgMap);
+                                
+                                // WSC-CL: For existing BGs that are already running, we need to ensure objects exist
+                                // But only if the BG is already in progress (not waiting to start)
+                                if (currentBg->GetStatus() != STATUS_WAIT_JOIN)
+                                {
+                                    // Clear old object references and recreate them
+                                    for (uint32 i = 0; i < currentBg->BgObjects.size(); ++i)
+                                    {
+                                        currentBg->BgObjects[i].Clear();
+                                    }
+                                    currentBg->SetupBattleground();
+                                    
+                                    // Open doors if BG is in progress
+                                    if (currentBg->GetStatus() == STATUS_IN_PROGRESS)
+                                    {
+                                        currentBg->StartingEventOpenDoors();
+                                    }
+                                }
+                                // If STATUS_WAIT_JOIN, let _ProcessJoin handle setup
+                                
+                                // WSC-CL: Only add player if not already in the BG
+                                if (!currentBg->GetPlayers().count(this->GetGUID()))
+                                {
+                                    currentBg->AddPlayer(this->GetSession()->GetPlayer());
+                                }
+                            }
+                            else
+                            {
+                                LOG_ERROR("entities.player", "Failed to get BattlegroundMap from map. `ToBattlegroundMap()` returned nullptr.");
+                            }
+
+                            Position const* startPos = currentBg->GetTeamStartPosition(this->GetTeamId());
+                            WorldLocation bgLocation = WorldLocation(mapId, startPos->GetPositionX(), startPos->GetPositionY(), startPos->GetPositionZ());
+
+                            if (startPos)
+                            {
+                                m_entryPointData.joinPos = bgLocation;
+                                m_entryPointData.joinPos.SetOrientation(startPos->GetOrientation());
+                            }
+                            else
+                            {
+                                LOG_ERROR("entities.player", "Failed to get starting position for player ({}) in new BG.", playerGuid.ToString());
+                                RelocateToHomebind();
+                                return false;
+                            }
+
+
+                        }
+                    }
                     else
                     {
-                        LOG_ERROR("entities.player", "Failed to get starting position for player ({}) in new BG.", playerGuid.ToString());
+                        LOG_ERROR("entities.player", "Player ({}) attempted to enter a BG, but failed. Returning to homebind.", GetName());
                         RelocateToHomebind();
                         return false;
                     }
-
-                    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHARACTER);
-                    stmt->SetData(17, instanceId);
-                    CharacterDatabase.Execute(stmt);
-                }
-                else {
-                    LOG_ERROR("entities.player", "Player ({}) attempted to enter a new BG, but creation failed. Returning to homebind.", GetName());
-                    RelocateToHomebind();
-                    return false; 
                 }
             }
         }
-        else {
-            if (this->InBattleground())      // saved in BG
-                instanceId = this->GetBattlegroundId();
-                currentBg = sBattlegroundMgr->GetBattleground(instanceId, this->GetBattlegroundTypeId());
-                mapId = currentBg->GetMapId();
+        else if (!bgCreatedNow) {  // Only execute this block if we didn't just create a new BG
+            if (this->InBattleground() || (mapId == 489 && instanceId != 0))      // saved in BG or was in WSG
+            {
+                // WSC-CL: Try to get existing BG first
+                currentBg = sBattlegroundMgr->GetBattleground(instanceId, BATTLEGROUND_WS);
+                
+                // WSC-CL: If BG doesn't exist (e.g., after server restart), create a new one for WSG
+                if (!currentBg && mapId == 489)
+                {
+                    PvPDifficultyEntry const* bracketEntry = GetBattlegroundBracketByLevel(489, this->GetLevel());
+                    if (bracketEntry)
+                    {
+                        currentBg = sBattlegroundMgr->CreateNewBattleground(BATTLEGROUND_WS, bracketEntry, 0, false);
+                        if (currentBg)
+                        {
+                            bgCreatedNow = true;
+                            LOG_INFO("entities.player", "Player ({}) was in BG that no longer exists. Creating new BG instance {} for them.", this->GetName(), currentBg->GetInstanceID());
+                            currentBg->SetDisablePrematureEnd(true);
+                            sBattlegroundMgr->AddBattleground(currentBg);
+                            this->SetBattlegroundId(currentBg->GetInstanceID(), BATTLEGROUND_WS, 0, true, false, m_bgData.bgTeamId);
+                            
+                            mapId = currentBg->GetMapId();
+                            instanceId = this->GetBattlegroundId();
+                            
+                            map = sMapMgr->CreateMap(mapId, this);
+                            
+                            if (!map)
+                            {
+                                LOG_ERROR("entities.player", "Failed to create battleground map instance for player ({}) after BG recreation. Returning to homebind.", GetName());
+                                RelocateToHomebind();
+                                return false;
+                            }
+                            
+                            BattlegroundMap* bgMap = map->ToBattlegroundMap();
+                            if (bgMap)
+                            {
+                                currentBg->SetBgMap(bgMap);
+                                map = currentBg->GetBgMap();
+                                this->SetMap(map);
+                                
+                                // WSC-CL: Initialize the battleground
+                                currentBg->Init();
+                                currentBg->StartBattleground();
+                                currentBg->SetStatus(STATUS_WAIT_JOIN);
+                                currentBg->SetStartDelayTime(BG_START_DELAY_2M);
+                                
+                                // WSC-CL: Don't call SetupBattleground here - _ProcessJoin will handle it
+                                // This prevents duplicate object creation
+                                
+                                currentBg->AddPlayer(this->GetSession()->GetPlayer());
+                                
+                                // WSC-CL: Set position for recreated BG
+                                Position const* startPos = currentBg->GetTeamStartPosition(this->GetTeamId());
+                                if (startPos)
+                                {
+                                    WorldLocation bgLocation = WorldLocation(mapId, startPos->GetPositionX(), startPos->GetPositionY(), startPos->GetPositionZ());
+                                    m_entryPointData.joinPos = bgLocation;
+                                    m_entryPointData.joinPos.SetOrientation(startPos->GetOrientation());
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (currentBg && !bgCreatedNow)
+                {
+                    // WSC-CL: Set battleground ID after confirming currentBg is valid
+                    this->SetBattlegroundId(currentBg->GetInstanceID(), BATTLEGROUND_WS, 0, true, false, m_bgData.bgTeamId);
+                    
+                    mapId = currentBg->GetMapId();
+                    instanceId = this->GetBattlegroundId();
+
+                    // WSC-CL: Try to get map from BG object first, if not available find/create it
+                    map = currentBg->GetBgMap();
+                    if (!map)
+                    {
+                        map = sMapMgr->FindMap(mapId, instanceId);
+                        if (!map)
+                        {
+                            LOG_ERROR("entities.player", "Failed to find battleground map instance for player ({}). Returning to homebind.", GetName());
+                            RelocateToHomebind();
+                            return false;
+                        }
+                    }
+
+                    // WSC-CL: Set map BEFORE adding player to BG so world states are sent properly
+                    this->SetMap(map);
+                    
+                    // WSC-CL: Ensure the BG has its map reference set
+                    BattlegroundMap* bgMap = map->ToBattlegroundMap();
+                    if (bgMap)
+                    {
+                        currentBg->SetBgMap(bgMap);
+                        
+                        // WSC-CL: For existing BGs that are already running, we need to ensure objects exist
+                        // But only if the BG is already in progress (not waiting to start)
+                        if (currentBg->GetStatus() != STATUS_WAIT_JOIN)
+                        {
+                            // Clear old object references and recreate them
+                            for (uint32 i = 0; i < currentBg->BgObjects.size(); ++i)
+                            {
+                                currentBg->BgObjects[i].Clear();
+                            }
+                            currentBg->SetupBattleground();
+                            
+                            // Open doors if BG is in progress
+                            if (currentBg->GetStatus() == STATUS_IN_PROGRESS)
+                            {
+                                currentBg->StartingEventOpenDoors();
+                            }
+                        }
+                        // If STATUS_WAIT_JOIN, let _ProcessJoin handle setup
+                    }
+                    
+                    // WSC-CL: Only add player if not already in the BG
+                    if (!currentBg->GetPlayers().count(this->GetGUID()))
+                    {
+                        currentBg->AddPlayer(this->GetSession()->GetPlayer());
+                    }
+                    
+                    LOG_INFO("entities.player", "Successfully loaded player ({}) into existing BG instance {}.", this->GetName(), instanceId);
+                }
+                
+                // WSC-CL: Handle position setup for both new and existing BGs
+                if (currentBg)
+                {
+                    // TODO: refactor into one reusable function?
+                    Position const* startPos = currentBg->GetTeamStartPosition(this->GetTeamId());
+                    if (startPos)
+                    {
+                        WorldLocation bgLocation = WorldLocation(mapId, startPos->GetPositionX(), startPos->GetPositionY(), startPos->GetPositionZ());
+                        m_entryPointData.joinPos = bgLocation;
+                        m_entryPointData.joinPos.SetOrientation(startPos->GetOrientation());
+                        //SetEntryPoint(); // instance only?
+                    }
+                    else
+                    {
+                        LOG_ERROR("entities.player", "Failed to get starting position for player ({}) in BG.", playerGuid.ToString());
+                        RelocateToHomebind();
+                        return false;
+                    }
+                }
+                else if (!bgCreatedNow)
+                {
+                    LOG_ERROR("entities.player", "Player ({}) tried to load into non-existing BG instance {} and failed to create new one. Returning to homebind.", this->GetName(), instanceId);
+                    RelocateToHomebind();
+                    return false;
+                }
+            }
         }
 
 
@@ -5208,7 +5464,6 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
         else
         {
             Relocate(&_loc);
-
             // xinef: restore taxi flight from entry point data
             if (m_entryPointData.HasTaxiPath())
             {
@@ -5362,7 +5617,9 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
         
     }
 
-    SetMap(map);
+    // WSC-CL: Only set map if not already set (we set it earlier for BG joins)
+    if (!GetMap())
+        SetMap(map);
     StoreRaidMapDifficulty();
 
     UpdatePositionData();
@@ -5640,6 +5897,7 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
 
     //m_achievementMgr->CheckAllAchievementCriteria(); // pussywizard: disabled this
 
+    // TODO: Natsirt -- equipment sets webservice interaction?
     _LoadEquipmentSets(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_EQUIPMENT_SETS));
 
     _LoadBrewOfTheMonth(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_BREW_OF_THE_MONTH));

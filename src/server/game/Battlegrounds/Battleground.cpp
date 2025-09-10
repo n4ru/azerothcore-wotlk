@@ -31,6 +31,7 @@
 #include "Formulas.h"
 #include "GameEventMgr.h"
 #include "GameGraveyard.h"
+#include "GameTime.h"
 #include "GridNotifiersImpl.h"
 #include "GroupMgr.h"
 #include "MapMgr.h"
@@ -192,6 +193,7 @@ Battleground::Battleground()
 
     m_PrematureCountDown = false;
     m_PrematureCountDownTimer = 0;
+    m_DisablePrematureEnd = false;
 
     m_HonorMode = BG_NORMAL;
 
@@ -272,14 +274,22 @@ void Battleground::Update(uint32 diff)
         // ]]
         // Battleground Template instance cannot be updated, because it would be deleted
 
+        // Check for offline players within timeout before deleting BG
+        if (!GetInvitedCount(TEAM_HORDE) && !GetInvitedCount(TEAM_ALLIANCE) && !HasOfflinePlayersWithinTimeout())
+        {
+            // Force all remaining players to leave before marking for deletion
+            BattlegroundPlayerMap::iterator itr, next;
+            for (itr = m_Players.begin(); itr != m_Players.end(); itr = next)
+            {
+                next = itr;
+                ++next;
+                itr->second->LeaveBattleground(this); //itr is erased here!
+            }
+            
+            m_SetDeleteThis = true;
+        }
 
-        // TODO:
-        //if (!GetInvitedCount(TEAM_HORDE) && !GetInvitedCount(TEAM_ALLIANCE))
-        //{
-        //    m_SetDeleteThis = true;
-        //}
-
-        //return;
+        return;
     }
 
     switch (GetStatus())
@@ -303,7 +313,8 @@ void Battleground::Update(uint32 diff)
             else
             {
                 _ProcessResurrect(diff);
-                if (sBattlegroundMgr->GetPrematureFinishTime() && (GetPlayersCountByTeam(TEAM_ALLIANCE) < GetMinPlayersPerTeam() || GetPlayersCountByTeam(TEAM_HORDE) < GetMinPlayersPerTeam()))
+                // Only process premature ending if not disabled for this battleground
+                if (!m_DisablePrematureEnd && sBattlegroundMgr->GetPrematureFinishTime() && (GetPlayersCountByTeam(TEAM_ALLIANCE) < GetMinPlayersPerTeam() || GetPlayersCountByTeam(TEAM_HORDE) < GetMinPlayersPerTeam()))
                     _ProcessProgress(diff);
                 else if (m_PrematureCountDown)
                     m_PrematureCountDown = false;
@@ -1809,6 +1820,27 @@ bool Battleground::IsPlayerInBattleground(ObjectGuid guid) const
     BattlegroundPlayerMap::const_iterator itr = m_Players.find(guid);
     if (itr != m_Players.end())
         return true;
+    return false;
+}
+
+bool Battleground::HasOfflinePlayersWithinTimeout() const
+{
+    uint32 maxOfflineTime = MAX_OFFLINE_TIME;
+    uint32 currentTime = GameTime::GetGameTime().count();
+    
+    for (auto const& [playerGuid, player] : m_Players)
+    {
+        if (!player->GetSession())
+            continue;
+            
+        if (player->GetSession()->GetOfflineTime() > 0)
+        {
+            uint32 offlineTime = currentTime - player->GetSession()->GetOfflineTime();
+            if (offlineTime < maxOfflineTime)
+                return true;
+        }
+    }
+    
     return false;
 }
 

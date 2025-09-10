@@ -357,6 +357,8 @@ public:
 
     // Set methods:
     void SetName(std::string_view name) { m_Name = std::string(name); }
+    void SetDisablePrematureEnd(bool disable) { m_DisablePrematureEnd = disable; }
+    [[nodiscard]] bool IsDisablePrematureEnd() const { return m_DisablePrematureEnd; }
     void SetBgTypeID(BattlegroundTypeId TypeID) { m_RealTypeID = TypeID; }
     void SetRandomTypeID(BattlegroundTypeId TypeID) { m_RandomTypeID = TypeID; }
     void SetBracket(PvPDifficultyEntry const* bracketEntry);
@@ -559,6 +561,8 @@ public:
 
     [[nodiscard]] bool ToBeDeleted() const { return m_SetDeleteThis; }
     //void SetDeleteThis() { m_SetDeleteThis = true; }
+    
+    [[nodiscard]] bool HasOfflinePlayersWithinTimeout() const;
 
     void RewardXPAtKill(Player* killer, Player* victim);
 
@@ -671,6 +675,7 @@ private:
     bool   m_PrematureCountDown;
     uint32 m_PrematureCountDownTimer;
     std::string m_Name{};
+    bool   m_DisablePrematureEnd;                       // disable premature ending for custom BGs
 
     /* Pre- and post-update hooks */
 

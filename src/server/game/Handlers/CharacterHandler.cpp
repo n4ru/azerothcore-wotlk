@@ -402,17 +402,11 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
             acctCharCount = uint64(fields[0].Get<double>());
         }
 
-<<<<<<< Updated upstream
         // TODO: Natsirt -- Double check if we want this to be a config option or if that conflict with the system having multiple characters
-=======
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         //if (acctCharCount >= static_cast<uint64>(sWorld->getIntConfig(CONFIG_CHARACTERS_PER_ACCOUNT)))
 
         // Sends max characters for account to client if they try to make more than one character
-        if (acctCharCount >= 2)
+        if (acctCharCount > 1)
         {
             SendCharCreate(CHAR_CREATE_ACCOUNT_LIMIT);
             return;
@@ -669,14 +663,7 @@ void WorldSession::HandleCharDeleteOpcode(WorldPacket& recvData)
     //LOG_INFO("entities.player.character", "Account: {}, IP: {} deleted character: {}, {}, Level: {}", accountId, GetRemoteAddress(), name, guid.ToString(), level);
 
     // TODO: Natsirt -- temp fix to prevent character deletion, strip whole function?
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
     // To prevent hook failure, place hook before removing reference from DB  
->>>>>>> Stashed changes
-=======
-    // To prevent hook failure, place hook before removing reference from DB  
->>>>>>> Stashed changes
     //sScriptMgr->OnPlayerDelete(guid, initAccountId); // To prevent race conditioning, but as it also makes sense, we hand the accountId over for successful delete.
     //sCalendarMgr->RemoveAllPlayerEventsAndInvites(guid);
     //Player::DeleteFromDB(guid.GetCounter(), GetAccountId(), true, false);

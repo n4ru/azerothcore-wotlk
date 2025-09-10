@@ -378,7 +378,7 @@ uint32 BattlegroundMgr::CreateClientVisibleInstanceId(BattlegroundTypeId bgTypeI
 // create a new battleground that will really be used to play
 Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId originalBgTypeId, PvPDifficultyEntry const* bracketEntry, uint8 arenaType, bool isRated)
 {
-    BattlegroundTypeId bgTypeId = GetRandomBG(originalBgTypeId, bracketEntry->minLevel);
+    BattlegroundTypeId bgTypeId = BATTLEGROUND_WS;
 
     if (originalBgTypeId == BATTLEGROUND_AA)
         originalBgTypeId = bgTypeId;
@@ -405,14 +405,16 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
 
     bg->SetBracket(bracketEntry);
     bg->SetInstanceID(sMapMgr->GenerateInstanceId());
-    bg->SetClientInstanceID(CreateClientVisibleInstanceId(originalBgTypeId, bracketEntry->GetBracketId()));
+    bg->SetClientInstanceID(CreateClientVisibleInstanceId(bgTypeId, bracketEntry->GetBracketId()));
     bg->Init();
     bg->SetStatus(STATUS_WAIT_JOIN); // start the joining of the bg
     bg->SetArenaType(arenaType);
-    bg->SetBgTypeID(originalBgTypeId);
+    bg->SetBgTypeID(bgTypeId);
     bg->SetRandomTypeID(bgTypeId);
     bg->SetRated(isRated);
     bg->SetRandom(isRandom);
+    
+
 
     // Set up correct min/max player counts for scoreboards
     if (bg->isArena())
