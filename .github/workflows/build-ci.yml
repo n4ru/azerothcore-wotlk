@@ -30,9 +30,16 @@ jobs:
         with:
           cmake-version: '3.27.0'  # Minimum for Windows
 
-      - name: Install MySQL
+      - name: Install dependencies
         run: |
-          # Use the latest available MySQL that works
+          # Download pre-built Boost for Windows
+          $boostUrl = "https://github.com/actions/boost-versions/releases/download/1.82.0-20230619.2/boost-1.82.0-windows-2022.tar.gz"
+          Invoke-WebRequest -Uri $boostUrl -OutFile "boost.tar.gz"
+          tar -xzf boost.tar.gz -C C:\
+          echo "BOOST_ROOT=C:\boost\1.82.0\x86_64" >> $env:GITHUB_ENV
+          echo "BOOST_ROOT set to C:\boost\1.82.0\x86_64"
+          
+          # Install MySQL
           choco install mysql -y
 
       - name: Configure build
@@ -155,13 +162,15 @@ jobs:
         run: |
           mkdir build
           cd build
+          # Set MySQL paths for Homebrew
+          export MYSQL_HOME=/usr/local/opt/mysql@8.0
           cmake .. \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DWITH_WARNINGS=1 \
             -DSCRIPTS=static \
             -DTOOLS_BUILD=all \
-            -DMYSQL_ADD_INCLUDE_PATH=/usr/local/include \
-            -DMYSQL_LIBRARY=/usr/local/lib/libmysqlclient.dylib \
+            -DMYSQL_ADD_INCLUDE_PATH="${MYSQL_HOME}/include/mysql" \
+            -DMYSQL_LIBRARY="${MYSQL_HOME}/lib/libmysqlclient.dylib" \
             -DREADLINE_INCLUDE_DIR=/usr/local/opt/readline/include \
             -DREADLINE_LIBRARY=/usr/local/opt/readline/lib/libreadline.dylib \
             -DOPENSSL_INCLUDE_DIR=/usr/local/opt/openssl@3/include \
