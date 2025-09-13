@@ -162,6 +162,8 @@ Battleground::Battleground()
     m_IsRated           = false;
     m_BuffChange        = false;
     m_IsRandom          = false;
+    m_LobbyCreated      = false;
+    m_DelayedStart      = false;
     m_LevelMin          = 0;
     m_LevelMax          = 0;
     m_SetDeleteThis     = false;
@@ -1384,6 +1386,15 @@ void Battleground::RemoveFromBGFreeSlotQueue()
         sBattlegroundMgr->RemoveFromBGFreeSlotQueue(m_RealTypeID, m_InstanceID);
         _InBGFreeSlotQueue = false;
     }
+}
+
+// WSC-CL - Add offline player to battleground (for lobby system)
+void Battleground::AddOfflinePlayer(ObjectGuid guid, TeamId teamId, uint32 offlineTime)
+{
+    OfflinePlayerInfo info;
+    info.offlineTime = offlineTime;  // 0 means not offline yet (just created/invited)
+    info.teamId = teamId;
+    m_OfflinePlayers[guid] = info;
 }
 
 uint32 Battleground::GetFreeSlotsForTeam(TeamId teamId) const

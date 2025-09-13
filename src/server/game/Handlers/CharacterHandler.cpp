@@ -956,6 +956,60 @@ void WorldSession::HandlePlayerLoginFromDB(LoginQueryHolder const& holder)
     }
 
     pCurrChar->SendInitialPacketsAfterAddToMap();
+    
+    // WSC-CL - Check if player should be sent to WSG lobby battleground
+    {
+        LOG_INFO("server.worldserver", "WSG Lobby: Checking for player {} (GUID: {})", 
+                 pCurrChar->GetName(), pCurrChar->GetGUID().GetCounter());
+                 
+        QueryResult wsgResult = CharacterDatabase.Query("SELECT battleground_instance_id, team_id FROM wsg_lobby_players WHERE guid = {}", 
+                                                         pCurrChar->GetGUID().GetCounter());
+        
+        if (wsgResult)
+        {
+            Field* fields = wsgResult->Fetch();
+            uint32 bgInstanceId = fields[0].Get<uint32>();
+            uint32 teamId = fields[1].Get<uint32>();
+            
+            LOG_INFO("server.worldserver", "WSG Lobby: Found entry for {} - BG: {}, Team: {}", 
+                     pCurrChar->GetName(), bgInstanceId, teamId);
+            
+            // Check if battleground still exists
+            if (Battleground* bg = sBattlegroundMgr->GetBattleground(bgInstanceId, BATTLEGROUND_WS))
+            {
+                LOG_INFO("server.worldserver", "WSG Lobby: BG {} exists, status: {}, adding player",
+                         bgInstanceId, bg->GetStatus());
+
+                // Set player's battleground data
+                pCurrChar->SetBattlegroundId(bgInstanceId, BATTLEGROUND_WS, 0, false, false, TeamId(teamId));
+
+                // Add player to battleground
+                bg->AddPlayer(pCurrChar);
+
+                // Teleport player to battleground
+                sBattlegroundMgr->SendToBattleground(pCurrChar, bgInstanceId, BATTLEGROUND_WS);
+
+                // Remove from wsg_lobby_players table
+                CharacterDatabase.Execute("DELETE FROM wsg_lobby_players WHERE guid = {}", pCurrChar->GetGUID().GetCounter());
+
+                LOG_INFO("server.worldserver", "WSG Lobby: Teleported {} to BG {} on team {}",
+                         pCurrChar->GetName(), bgInstanceId, teamId == TEAM_ALLIANCE ? "Alliance" : "Horde");
+            }
+            else
+            {
+                // Battleground no longer exists, clean up the entry
+                CharacterDatabase.Execute("DELETE FROM wsg_lobby_players WHERE guid = {}", pCurrChar->GetGUID().GetCounter());
+                
+                LOG_WARN("server.worldserver", "WSG Lobby: BG {} no longer exists for player {}", 
+                         bgInstanceId, pCurrChar->GetName());
+            }
+        }
+        else
+        {
+            LOG_INFO("server.worldserver", "WSG Lobby: No entry found for {} (GUID: {})", 
+                     pCurrChar->GetName(), pCurrChar->GetGUID().GetCounter());
+        }
+    }
 
     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHAR_ONLINE);
     stmt->SetData(0, pCurrChar->GetGUID().GetCounter());

@@ -20,6 +20,7 @@
 #include "GameGraveyard.h"
 #include "GameObject.h"
 #include "Object.h"
+#include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "World.h"

@@ -233,6 +233,13 @@ void WorldConfig::BuildConfigCache()
     SetConfigValue<bool>(CONFIG_RACE_CUSTOMIZATION, "CharacterWebService.RaceCustomization", true, ConfigValueCache::Reloadable::Yes);
     SetConfigValue<bool>(CONFIG_WEB_SERVICE_DELETE_ALL_CHARS, "CharacterWebService.DeleteAllCharacters", true, ConfigValueCache::Reloadable::Yes); // WSC-CL
     SetConfigValue<bool>(CONFIG_WEB_SERVICE_ONLY_CREATION, "CharacterWebService.OnlyAllowWebServiceCreation", false, ConfigValueCache::Reloadable::Yes); // WSC-CL
+    
+    // WSG Lobby System
+    SetConfigValue<bool>(CONFIG_WSG_LOBBY_ENABLE, "WSGLobby.Enable", true, ConfigValueCache::Reloadable::Yes);
+    SetConfigValue<uint32>(CONFIG_WSG_LOBBY_MAX_LOBBIES, "WSGLobby.MaxLobbies", 10, ConfigValueCache::Reloadable::Yes);
+    SetConfigValue<uint32>(CONFIG_WSG_LOBBY_TIMEOUT, "WSGLobby.LobbyTimeout", 3600, ConfigValueCache::Reloadable::Yes);
+    SetConfigValue<uint32>(CONFIG_WSG_LOBBY_MIN_PLAYERS, "WSGLobby.MinPlayers", 2, ConfigValueCache::Reloadable::Yes);
+    SetConfigValue<uint32>(CONFIG_WSG_LOBBY_MAX_PLAYERS, "WSGLobby.MaxPlayers", 20, ConfigValueCache::Reloadable::Yes);
 
     SetConfigValue<uint32>(CONFIG_MAX_PLAYER_LEVEL, "MaxPlayerLevel", DEFAULT_MAX_LEVEL, ConfigValueCache::Reloadable::No, [](uint32 const& value) { return value > 0 && value <= MAX_LEVEL; }, "> 0 && <= MAX_LEVEL");
 

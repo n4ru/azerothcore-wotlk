@@ -445,6 +445,42 @@ CharacterWebService.OnlyAllowWebServiceCreation = 1
 PreventItemUnequip = 0
 
 #
+#    WSGLobby.Enable
+#        Description: Enable the WSG Lobby system for creating battleground lobbies.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+WSGLobby.Enable = 1
+
+#
+#    WSGLobby.MaxLobbies
+#        Description: Maximum number of concurrent lobbies allowed.
+#        Default:     10
+
+WSGLobby.MaxLobbies = 10
+
+#
+#    WSGLobby.LobbyTimeout
+#        Description: Time in seconds before a pending lobby expires.
+#        Default:     3600 (1 hour)
+
+WSGLobby.LobbyTimeout = 3600
+
+#
+#    WSGLobby.MinPlayers
+#        Description: Minimum number of players required to start a lobby.
+#        Default:     2
+
+WSGLobby.MinPlayers = 2
+
+#
+#    WSGLobby.MaxPlayers
+#        Description: Maximum number of players allowed in a lobby.
+#        Default:     20
+
+WSGLobby.MaxPlayers = 20
+
+#
 ###################################################################################################
 
 ###################################################################################################

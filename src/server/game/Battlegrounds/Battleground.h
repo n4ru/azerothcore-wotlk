@@ -383,6 +383,9 @@ public:
 
     void AddToBGFreeSlotQueue();        // this queue will be useful when more battlegrounds instances will be available
     void RemoveFromBGFreeSlotQueue();   // this method could delete whole BG instance, if another free is available
+    
+    // WSC-CL - Add offline player to battleground (for lobby system)
+    void AddOfflinePlayer(ObjectGuid guid, TeamId teamId, uint32 offlineTime = 0);  // Implementation in cpp file
 
     void DecreaseInvitedCount(TeamId teamId)    { if (m_BgInvitedPlayers[teamId]) --m_BgInvitedPlayers[teamId]; }
     void IncreaseInvitedCount(TeamId teamId)    { ++m_BgInvitedPlayers[teamId]; }
@@ -606,6 +609,14 @@ public:
     BattlegroundIC* ToBattlegroundIC() { if (GetBgTypeID(true) == BATTLEGROUND_IC) return reinterpret_cast<BattlegroundIC*>(this); else return nullptr; }
     [[nodiscard]] BattlegroundIC const* ToBattlegroundIC() const { if (GetBgTypeID(true) == BATTLEGROUND_IC) return reinterpret_cast<const BattlegroundIC*>(this); else return nullptr; }
 
+    // WSG Lobby System
+    void SetLobbyCreated(bool created) { m_LobbyCreated = created; }
+    bool IsLobbyCreated() const { return m_LobbyCreated; }
+    void SetDelayedStart(bool delayed) { m_DelayedStart = delayed; }
+    bool IsDelayedStart() const { return m_DelayedStart; }
+    void SetLobbyLeaderName(const std::string& name) { m_LobbyLeaderName = name; }
+    const std::string& GetLobbyLeaderName() const { return m_LobbyLeaderName; }
+
 protected:
     // this method is called, when BG cannot spawn its own spirit guide, or something is wrong, It correctly ends Battleground
     void EndNow();
@@ -673,6 +684,11 @@ private:
     bool   m_PrematureCountDown;
     uint32 m_PrematureCountDownTimer;
     std::string m_Name{};
+    
+    // WSG Lobby System
+    bool   m_LobbyCreated;
+    bool   m_DelayedStart;
+    std::string m_LobbyLeaderName;
 
     /* Pre- and post-update hooks */
 

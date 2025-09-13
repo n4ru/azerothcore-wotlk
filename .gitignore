@@ -108,3 +108,6 @@ local.properties
 /bin/*
 
 wsc.png
+
+# Node.js dependencies
+node_modules/
